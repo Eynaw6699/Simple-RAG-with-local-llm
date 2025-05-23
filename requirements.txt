@@ -1,0 +1,10 @@
+pypdf
+langchain
+langchain-community
+langchain-chroma
+langchain-ollama
+chromadb # Vector storage
+pytest
+boto3
+cryptography
+gradio
