@@ -8,3 +8,4 @@ pytest
 boto3
 cryptography
 gradio
+sentence-transformers

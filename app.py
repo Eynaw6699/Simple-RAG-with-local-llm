@@ -1,8 +1,8 @@
 import gradio as gr
 import pandas as pd
+import os
+import shutil
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_chroma import Chroma
 from langchain.prompts import ChatPromptTemplate
 from langchain_ollama import OllamaLLM
@@ -10,14 +10,11 @@ from langchain_ollama import OllamaLLM
 from get_embedding_function import get_embedding_function
 from query_data import CHROMA_PATH, PROMPT_TEMPLATE
 from populate_database import load_documents, split_documents, add_to_chroma
+from reranking import rerank_documents
+from populate_database import DATA_PATH
 
-
-text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=800,
-        chunk_overlap=80,
-        length_function=len,
-        is_separator_regex=False,
-    )
+import logging 
+LOGGER = logging.getLogger(__name__)
 
 
 def query_rag(query_text: str):
@@ -26,7 +23,10 @@ def query_rag(query_text: str):
     db = Chroma(persist_directory=CHROMA_PATH, embedding_function=embedding_function)
 
     # Search the DB.
-    results = db.similarity_search_with_score(query_text, k=5)
+    results = db.similarity_search_with_score(query_text, k=10)
+
+    # rerank the results 
+    results = rerank_documents(query_text, results)
 
     # Prepare dataframe data
     data = {
@@ -68,6 +68,21 @@ def query_rag(query_text: str):
     print(formatted_response)
     
     yield df_output, prompt, response_text
+
+def handle_upload(files):
+    saved_files = []
+
+    # Save uploaded files to the data directory
+    for file in files:
+        filename = os.path.basename(file.name)
+        dest_path = os.path.join(DATA_PATH, filename)
+        shutil.copy(file.name, dest_path)
+        saved_files.append(filename)
+
+    # similar to populate_database.py
+    documents = load_documents()
+    chunks = split_documents(documents)
+    add_to_chroma(chunks)
 
 
 # Gradio Interface
@@ -124,7 +139,7 @@ with gr.Blocks(title="RAG System with Chroma DB") as demo:
     
     # Event handlers
     upload_button.click(
-        fn=add_to_chroma,
+        fn=handle_upload,
         inputs=[file_input],
         outputs=[upload_output]
     )

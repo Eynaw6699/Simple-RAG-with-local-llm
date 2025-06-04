@@ -4,6 +4,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_ollama import OllamaLLM
 
 from get_embedding_function import get_embedding_function
+from reranking import rerank_documents
 
 CHROMA_PATH = "chroma"
 
@@ -34,6 +35,9 @@ def query_rag(query_text: str):
 
     # Search the DB.
     results = db.similarity_search_with_score(query_text, k=5)
+
+    # rerank results
+    results = rerank_documents(query_text, results)
 
     context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
